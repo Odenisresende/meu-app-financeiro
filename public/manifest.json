@@ -1,0 +1,114 @@
+{
+  "name": "Seu Planejamento - Controle Financeiro",
+  "short_name": "Seu Planejamento",
+  "description": "Controle suas finanças de forma inteligente com IA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#152638",
+  "theme_color": "#DDC067",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["finance", "productivity", "business"],
+  "screenshots": [
+    {
+      "src": "/app-dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard principal com visão geral das finanças"
+    },
+    {
+      "src": "/app-analytics.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Análises e relatórios detalhados"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-seu-planejamento.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova Transação",
+      "short_name": "Nova",
+      "description": "Adicionar nova transação rapidamente",
+      "url": "/?action=new-transaction",
+      "icons": [
+        {
+          "src": "/logo-seu-planejamento.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Relatórios",
+      "short_name": "Relatórios",
+      "description": "Ver relatórios e análises",
+      "url": "/?tab=analytics",
+      "icons": [
+        {
+          "src": "/logo-seu-planejamento.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}

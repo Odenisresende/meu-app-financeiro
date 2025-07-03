@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Seu Planejamento</string>
+    <string name="title_activity_main">Seu Planejamento</string>
+    <string name="package_name">com.seuplanejamento.app</string>
+    <string name="custom_url_scheme">com.seuplanejamento.app</string>
+    
+    <!-- Permissões -->
+    <string name="camera_permission_description">Necessário para fotografar comprovantes e usar OCR</string>
+    <string name="storage_permission_description">Necessário para salvar relatórios e fazer backup dos dados</string>
+    <string name="notification_permission_description">Necessário para enviar lembretes e alertas financeiros</string>
+    
+    <!-- Recursos -->
+    <string name="ocr_feature_description">Digitalize comprovantes automaticamente</string>
+    <string name="backup_feature_description">Mantenha seus dados seguros</string>
+    <string name="sync_feature_description">Sincronize entre dispositivos</string>
+</resources>
