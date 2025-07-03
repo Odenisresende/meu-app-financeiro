@@ -1,10 +1,8 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Fallback para desenvolvimento local se as variáveis não estiverem definidas
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://nsvxswjgpqcxizbqdhoy.supabase.co"
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zdnhzd2pncHFjeGl6YnFkaG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExNDc1NzIsImV4cCI6MjA2NjcyMzU3Mn0.3H-xp0EOYtO5M4GiDWs_tenRtk3aLukpzfhyAwlu4nI"
+// SUAS NOVAS CREDENCIAIS DO SUPABASE (ATUALIZE AQUI)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://SEU_NOVO_PROJETO.supabase.co"
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "SUA_NOVA_CHAVE_ANONIMA"
 
 // Verificar se as variáveis estão definidas
 if (!supabaseUrl || !supabaseKey) {
@@ -13,12 +11,22 @@ if (!supabaseUrl || !supabaseKey) {
   console.error("NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseKey ? "✅ Definida" : "❌ Não definida")
 }
 
+// Verificar se as URLs são válidas
+if (supabaseUrl && !supabaseUrl.includes(".supabase.co")) {
+  console.error("❌ URL do Supabase parece incorreta:", supabaseUrl)
+}
+
 // INSTÂNCIA ÚNICA DO SUPABASE COM CONFIGURAÇÕES MELHORADAS
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+  },
+  global: {
+    headers: {
+      "X-Client-Info": "supabase-js-web",
+    },
   },
 })
 
@@ -92,5 +100,27 @@ export const checkAndRefreshSession = async () => {
       window.location.reload()
     }
     return null
+  }
+}
+
+// FUNÇÃO PARA TESTAR CONEXÃO
+export const testConnection = async () => {
+  try {
+    console.log("🔍 Testando conexão com Supabase...")
+    console.log("URL:", supabaseUrl)
+    console.log("Key (primeiros 20 chars):", supabaseKey?.substring(0, 20) + "...")
+
+    const { data, error } = await supabase.from("user_subscriptions").select("count").limit(1)
+
+    if (error) {
+      console.error("❌ Erro na conexão:", error)
+      return false
+    }
+
+    console.log("✅ Conexão com Supabase funcionando!")
+    return true
+  } catch (error) {
+    console.error("❌ Falha crítica na conexão:", error)
+    return false
   }
 }
