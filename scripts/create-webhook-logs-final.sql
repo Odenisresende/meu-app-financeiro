@@ -1,30 +1,41 @@
 -- CRIAR TABELA DE LOGS DE WEBHOOKS
 DROP TABLE IF EXISTS webhook_logs CASCADE;
 
-CREATE TABLE webhook_logs (
-    id BIGSERIAL PRIMARY KEY,
-    webhook_type VARCHAR(50) DEFAULT 'mercadopago',
-    event_type VARCHAR(100),
-    data JSONB NOT NULL,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
+CREATE TABLE IF NOT EXISTS public.webhook_logs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    webhook_type TEXT NOT NULL CHECK (webhook_type IN ('mercadopago', 'whatsapp')),
+    event_type TEXT,
+    payload JSONB,
+    headers JSONB,
     processed BOOLEAN DEFAULT FALSE,
-    processed_at TIMESTAMPTZ,
     error_message TEXT,
-    received_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Índices para performance
-CREATE INDEX idx_webhook_logs_received_at ON webhook_logs(received_at);
-CREATE INDEX idx_webhook_logs_processed ON webhook_logs(processed);
-CREATE INDEX idx_webhook_logs_webhook_type ON webhook_logs(webhook_type);
-CREATE INDEX idx_webhook_logs_event_type ON webhook_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_type ON public.webhook_logs(webhook_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_processed ON public.webhook_logs(processed);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON public.webhook_logs(created_at DESC);
 
 -- Índice para busca no JSON
-CREATE INDEX idx_webhook_logs_data_payment_id ON webhook_logs USING GIN ((data->'data'->>'id'));
+CREATE INDEX idx_webhook_logs_data_payment_id ON public.webhook_logs USING GIN ((payload->'data'->>'id')));
 
 -- Comentários para documentação
-COMMENT ON TABLE webhook_logs IS 'Logs de todos os webhooks recebidos';
-COMMENT ON COLUMN webhook_logs.data IS 'Dados completos do webhook em formato JSON';
-COMMENT ON COLUMN webhook_logs.processed IS 'Se o webhook foi processado com sucesso';
+COMMENT ON TABLE public.webhook_logs IS 'Logs de todos os webhooks recebidos';
+COMMENT ON COLUMN public.webhook_logs.payload IS 'Dados completos do webhook em formato JSON';
+COMMENT ON COLUMN public.webhook_logs.processed IS 'Se o webhook foi processado com sucesso';
+
+-- Habilitar RLS (apenas admins podem ver logs)
+ALTER TABLE public.webhook_logs ENABLE ROW LEVEL SECURITY;
+
+-- Política para permitir inserção de webhooks (sem autenticação)
+CREATE POLICY "Permitir inserção de webhooks"
+    ON public.webhook_logs FOR INSERT
+    WITH CHECK (true);
+
+-- Política para leitura apenas por usuários autenticados (para debug)
+CREATE POLICY "Usuários autenticados podem ver logs"
+    ON public.webhook_logs FOR SELECT
+    USING (auth.uid() IS NOT NULL);
+
+-- ✅ TABELA DE WEBHOOK LOGS CRIADA COM SUCESSO
