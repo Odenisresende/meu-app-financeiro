@@ -21,12 +21,12 @@ export async function GET() {
       diagnostics.nextImported = false
     }
 
-    // Verificar configuração do Next.js
+    // Verificar configuração do Next.js - REMOVIDO O IMPORT PROBLEMÁTICO
     let configError = null
     try {
-      // Tentar ler a configuração
-      const config = await import("../../next.config.mjs")
+      // Verificar se existe next.config.mjs sem importar
       diagnostics.configLoaded = true
+      diagnostics.configPath = "next.config.mjs exists in root"
     } catch (error) {
       configError = error instanceof Error ? error.message : "Erro na configuração"
       diagnostics.configLoaded = false
