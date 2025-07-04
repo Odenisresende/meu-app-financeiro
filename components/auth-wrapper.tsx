@@ -114,12 +114,6 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     })
   }
 
-  const value = {
-    user,
-    loading,
-    signOut,
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -295,5 +289,5 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     )
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, signOut }}>{children}</AuthContext.Provider>
 }
