@@ -8,6 +8,14 @@ const urlsToCache = [
   "/app-history.png",
 ]
 
+// URLs que NÃO devem ser interceptadas pelo SW
+const BYPASS_URLS = ["supabase.co", "mercadopago.com", "mercadolibre.com", "api/", "auth/", "webhook"]
+
+// Função para verificar se deve interceptar a URL
+function shouldIntercept(url) {
+  return !BYPASS_URLS.some((bypass) => url.includes(bypass))
+}
+
 // Instalar Service Worker
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -18,17 +26,31 @@ self.addEventListener("install", (event) => {
   )
 })
 
-// Interceptar requisições
+// Interceptar requisições - CORRIGIDO
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Retornar do cache se disponível
-      if (response) {
-        return response
-      }
-      return fetch(event.request)
-    }),
-  )
+  // NÃO interceptar URLs do Supabase, APIs e webhooks
+  if (!shouldIntercept(event.request.url)) {
+    return // Deixa a requisição passar normalmente
+  }
+
+  // Só interceptar recursos estáticos
+  if (
+    event.request.method === "GET" &&
+    (event.request.destination === "document" ||
+      event.request.destination === "image" ||
+      event.request.destination === "style" ||
+      event.request.destination === "script")
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((response) => {
+        // Retornar do cache se disponível
+        if (response) {
+          return response
+        }
+        return fetch(event.request)
+      }),
+    )
+  }
 })
 
 // Atualizar Service Worker

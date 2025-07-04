@@ -6,10 +6,25 @@ import { createClient } from "@supabase/supabase-js"
 import { Loader2, Mail, Lock, UserIcon, Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-)
+// Singleton para evitar múltiplas instâncias
+let supabaseInstance: any = null
+
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      },
+    )
+  }
+  return supabaseInstance
+}
 
 interface User {
   id: string
@@ -42,8 +57,16 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const supabase = getSupabaseClient()
 
   useEffect(() => {
+    // Verificar se Supabase está configurado
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      console.warn("Supabase não configurado")
+      setLoading(false)
+      return
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser((session?.user as User) || null)
       setLoading(false)
@@ -57,7 +80,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [supabase])
 
   const signIn = async (email: string, password: string) => {
     const result = await supabase.auth.signInWithPassword({
@@ -271,6 +294,15 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Verificar se Supabase está configurado
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      console.warn("Supabase não configurado")
+      setLoading(false)
+      return
+    }
+
+    const supabase = getSupabaseClient()
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser((session?.user as User) || null)
       setLoading(false)
