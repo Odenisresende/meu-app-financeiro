@@ -1,6 +1,4 @@
 "use client"
-
-import { SubscriptionModal } from "@/components/subscription-modal"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
@@ -67,7 +65,14 @@ export default function TestPaymentPage() {
               Nome: APRO (aprovado)
             </div>
 
-            <SubscriptionModal />
+            <div className="p-4 border rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                Componente de assinatura será carregado aqui quando a autenticação estiver funcionando.
+              </p>
+              <Button disabled className="w-full">
+                Teste de Pagamento (Requer Login)
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
