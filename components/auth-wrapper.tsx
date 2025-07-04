@@ -23,16 +23,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthWrapper")
+    throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
 }
 
-interface AuthWrapperProps {
+interface AuthProviderProps {
   children: React.ReactNode
 }
 
-export default function AuthWrapper({ children }: AuthWrapperProps) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [authLoading, setAuthLoading] = useState(false)
@@ -112,6 +112,12 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       ...formData,
       [e.target.name]: e.target.value,
     })
+  }
+
+  const value = {
+    user,
+    loading,
+    signOut,
   }
 
   if (loading) {
@@ -289,5 +295,9 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     )
   }
 
-  return <AuthContext.Provider value={{ user, loading, signOut }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export default function AuthWrapper({ children }: { children: React.ReactNode }) {
+  return <AuthProvider>{children}</AuthProvider>
 }
