@@ -2,28 +2,27 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, CreditCard, User, Mail } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle, XCircle, Clock, CreditCard, AlertTriangle, ExternalLink, RefreshCw } from "lucide-react"
 
 export default function TestPaymentComplete() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [paymentResult, setPaymentResult] = useState<any>(null)
-  const [userEmail, setUserEmail] = useState("")
-  const [userName, setUserName] = useState("")
+  const [userEmail, setUserEmail] = useState("cliente.teste@exemplo.com")
+  const [userName, setUserName] = useState("João Silva Teste")
+  const [result, setResult] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<any>(null)
 
   const createTestPayment = async () => {
-    if (!userEmail || !userName) {
-      alert("Preencha email e nome para teste")
-      return
-    }
-
-    setIsLoading(true)
-    setPaymentResult(null)
+    setLoading(true)
+    setResult(null)
+    setPaymentStatus(null)
 
     try {
+      console.log("Enviando dados:", { userEmail, userName })
+
       const response = await fetch("/api/create-subscription", {
         method: "POST",
         headers: {
@@ -38,254 +37,286 @@ export default function TestPaymentComplete() {
       })
 
       const data = await response.json()
-      setPaymentResult(data)
+      console.log("Resposta da API:", data)
 
-      if (data.success && data.paymentUrl) {
-        // Abrir URL de pagamento em nova aba
-        window.open(data.paymentUrl, "_blank")
+      if (data.success) {
+        setResult({
+          type: "success",
+          message: "Pagamento criado com sucesso!",
+          data: data,
+        })
+
+        // Abrir checkout do Mercado Pago
+        const checkoutUrl = data.sandboxUrl || data.paymentUrl
+        if (checkoutUrl) {
+          console.log("Abrindo checkout:", checkoutUrl)
+          window.open(checkoutUrl, "_blank")
+        }
+      } else {
+        setResult({
+          type: "error",
+          message: data.error || "Erro desconhecido",
+          details: data.details,
+        })
       }
     } catch (error) {
       console.error("Erro ao criar pagamento:", error)
-      setPaymentResult({
-        success: false,
-        error: "Erro ao conectar com o servidor",
+      setResult({
+        type: "error",
+        message: "Erro ao conectar com o servidor",
+        details: error instanceof Error ? error.message : "Erro desconhecido",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   const checkPaymentStatus = async () => {
-    if (!paymentResult?.paymentId) return
+    if (!result?.data?.preferenceId) {
+      alert("Primeiro crie um pagamento!")
+      return
+    }
 
     try {
-      const response = await fetch(`/api/check-payment-status?paymentId=${paymentResult.paymentId}`)
+      const response = await fetch(`/api/check-payment-status?preferenceId=${result.data.preferenceId}`)
       const data = await response.json()
-
-      setPaymentResult((prev) => ({
-        ...prev,
-        status: data.status,
-        statusDetail: data.statusDetail,
-        lastCheck: new Date().toLocaleTimeString(),
-      }))
+      setPaymentStatus(data)
     } catch (error) {
       console.error("Erro ao verificar status:", error)
+      setPaymentStatus({
+        error: "Erro ao verificar status",
+        details: error instanceof Error ? error.message : "Erro desconhecido",
+      })
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <CheckCircle className="h-5 w-5 text-green-600" />
-      case "rejected":
-        return <XCircle className="h-5 w-5 text-red-600" />
-      case "pending":
-        return <Clock className="h-5 w-5 text-yellow-600" />
-      default:
-        return <Clock className="h-5 w-5 text-gray-600" />
-    }
-  }
+  const generateRandomEmail = () => {
+    const domains = ["exemplo.com", "teste.com", "demo.com"]
+    const names = ["cliente", "usuario", "comprador", "teste"]
+    const randomName = names[Math.floor(Math.random() * names.length)]
+    const randomDomain = domains[Math.floor(Math.random() * domains.length)]
+    const randomNumber = Math.floor(Math.random() * 1000)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-100 text-green-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+    setUserEmail(`${randomName}${randomNumber}@${randomDomain}`)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
+        {/* Header com Status do Banco */}
         <Card>
-          <CardHeader className="bg-blue-600 text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Problemas Corrigidos!
+            </CardTitle>
+            <CardDescription>
+              ✅ Erro de constraint do banco corrigido (usando INSERT ao invés de UPSERT)
+              <br />✅ Configuração do Mercado Pago otimizada para evitar erro "pagar para si mesmo"
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        {/* Formulário de Teste */}
+        <Card>
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-6 w-6" />
-              Teste Completo de Pagamento - Mercado Pago
+              Teste Completo de Pagamento
             </CardTitle>
+            <CardDescription>Teste o fluxo completo de pagamento com Mercado Pago</CardDescription>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Formulário de Teste */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Dados para Teste</h3>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Nome Completo
-                  </Label>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="userName">Nome Completo</Label>
+                <Input
+                  id="userName"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="Seu nome completo"
+                />
+              </div>
+              <div>
+                <Label htmlFor="userEmail">Email</Label>
+                <div className="flex gap-2">
                   <Input
-                    type="text"
-                    placeholder="João Silva"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email
-                  </Label>
-                  <Input
+                    id="userEmail"
                     type="email"
-                    placeholder="joao@email.com"
                     value={userEmail}
                     onChange={(e) => setUserEmail(e.target.value)}
-                    className="w-full"
+                    placeholder="cliente@exemplo.com"
+                    className="flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateRandomEmail}
+                    className="px-3 bg-transparent"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
                 </div>
-
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">Plano Premium</h4>
-                  <p className="text-blue-700 text-sm mb-2">
-                    • Controle financeiro completo • Relatórios em PDF • Integração WhatsApp • Suporte prioritário
-                  </p>
-                  <p className="text-2xl font-bold text-blue-900">R$ 19,90/mês</p>
-                </div>
-
-                <Button
-                  onClick={createTestPayment}
-                  disabled={isLoading || !userEmail || !userName}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Criando Pagamento...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Criar Pagamento de Teste
-                    </>
-                  )}
-                </Button>
               </div>
+            </div>
 
-              {/* Resultado */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Resultado do Teste</h3>
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Importante:</strong> Use um email diferente da sua conta do Mercado Pago. Clique no botão de
+                refresh para gerar um email aleatório.
+              </AlertDescription>
+            </Alert>
 
-                {paymentResult ? (
-                  <div className="space-y-4">
-                    {paymentResult.success ? (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                          <span className="font-medium text-green-900">Pagamento Criado!</span>
-                        </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">Plano Premium</h4>
+              <p className="text-blue-700 text-sm mb-2">
+                • Controle financeiro completo
+                <br />• Relatórios em PDF
+                <br />• Integração WhatsApp
+                <br />• Suporte prioritário
+              </p>
+              <p className="text-2xl font-bold text-blue-900">R$ 19,90/mês</p>
+            </div>
 
-                        <div className="space-y-2 text-sm">
+            <Button
+              onClick={createTestPayment}
+              disabled={loading || !userEmail || !userName}
+              className="w-full"
+              size="lg"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Criando Pagamento...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Criar Pagamento de Teste
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Resultado do Teste */}
+        {result && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {result.type === "success" ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+                Resultado do Teste
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Alert
+                className={result.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}
+              >
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p className={result.type === "success" ? "text-green-800" : "text-red-800"}>{result.message}</p>
+                    {result.details && <p className="text-sm text-gray-600">Detalhes: {result.details}</p>}
+                    {result.data && (
+                      <div className="mt-3 p-3 bg-gray-100 rounded text-sm space-y-1">
+                        <p>
+                          <strong>Preference ID:</strong> {result.data.preferenceId}
+                        </p>
+                        <p>
+                          <strong>User ID:</strong> {result.data.testUserId}
+                        </p>
+                        <p>
+                          <strong>Email:</strong> {result.data.userEmail}
+                        </p>
+                        <p>
+                          <strong>Nome:</strong> {result.data.userName}
+                        </p>
+                        {result.data.sandboxUrl && (
                           <p>
-                            <strong>ID:</strong> {paymentResult.paymentId}
-                          </p>
-                          <p>
-                            <strong>URL:</strong>
+                            <strong>URL Checkout:</strong>
                             <a
-                              href={paymentResult.paymentUrl}
+                              href={result.data.sandboxUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline ml-1"
                             >
-                              Abrir Pagamento
+                              <ExternalLink className="h-3 w-3 inline mr-1" />
+                              Abrir novamente
                             </a>
                           </p>
-                          {paymentResult.status && (
-                            <div className="flex items-center gap-2 mt-3">
-                              {getStatusIcon(paymentResult.status)}
-                              <Badge className={getStatusColor(paymentResult.status)}>
-                                {paymentResult.status.toUpperCase()}
-                              </Badge>
-                              {paymentResult.lastCheck && (
-                                <span className="text-xs text-gray-500">
-                                  Última verificação: {paymentResult.lastCheck}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <Button
-                          onClick={checkPaymentStatus}
-                          variant="outline"
-                          size="sm"
-                          className="mt-3 bg-transparent"
-                        >
-                          Verificar Status
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <XCircle className="h-5 w-5 text-red-600" />
-                          <span className="font-medium text-red-900">Erro no Pagamento</span>
-                        </div>
-                        <p className="text-red-700 text-sm">{paymentResult.error}</p>
+                        )}
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                    <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">Preencha os dados e clique em "Criar Pagamento de Teste"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                </AlertDescription>
+              </Alert>
 
-        {/* Instruções */}
+              {result.type === "success" && (
+                <div className="mt-4 space-y-3">
+                  <Button onClick={checkPaymentStatus} variant="outline" className="w-full bg-transparent">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Verificar Status do Pagamento
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Status do Pagamento */}
+        {paymentStatus && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Status do Pagamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {paymentStatus.error ? (
+                <Alert variant="destructive">
+                  <XCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Erro:</strong> {paymentStatus.error}
+                    {paymentStatus.details && <br />}
+                    {paymentStatus.details && <span className="text-sm">{paymentStatus.details}</span>}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <pre className="bg-gray-100 p-4 rounded text-sm overflow-auto max-h-96">
+                  {JSON.stringify(paymentStatus, null, 2)}
+                </pre>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Cartões de Teste */}
         <Card>
           <CardHeader>
-            <CardTitle>Como Testar</CardTitle>
+            <CardTitle>Cartões de Teste</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium mb-3">Cartões de Teste</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-green-50 p-3 rounded">
-                    <p>
-                      <strong>Aprovado:</strong> 5031 7557 3453 0604
-                    </p>
-                    <p>CVV: 123 | Validade: 11/25</p>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded">
-                    <p>
-                      <strong>Rejeitado:</strong> 5031 4332 1540 6351
-                    </p>
-                    <p>CVV: 123 | Validade: 11/25</p>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded">
-                    <p>
-                      <strong>Pendente:</strong> 5031 4332 1540 6351
-                    </p>
-                    <p>CVV: 123 | Validade: 11/25</p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h4 className="font-medium text-green-800 mb-2">✅ Aprovado</h4>
+                <p className="text-sm text-green-600 font-mono mb-1">5031 7557 3453 0604</p>
+                <p className="text-xs text-green-600">CVV: 123 | Validade: 11/25</p>
               </div>
-
-              <div>
-                <h4 className="font-medium mb-3">Fluxo de Teste</h4>
-                <ol className="list-decimal list-inside space-y-1 text-sm">
-                  <li>Preencha nome e email</li>
-                  <li>Clique em "Criar Pagamento"</li>
-                  <li>Uma nova aba abrirá com o checkout</li>
-                  <li>Use um cartão de teste</li>
-                  <li>Complete o pagamento</li>
-                  <li>Volte aqui e clique "Verificar Status"</li>
-                  <li>Verifique se o webhook foi recebido</li>
-                </ol>
+              <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                <h4 className="font-medium text-red-800 mb-2">❌ Rejeitado</h4>
+                <p className="text-sm text-red-600 font-mono mb-1">5031 4332 1540 6351</p>
+                <p className="text-xs text-red-600">CVV: 123 | Validade: 11/25</p>
+              </div>
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h4 className="font-medium text-yellow-800 mb-2">⏳ Pendente</h4>
+                <p className="text-sm text-yellow-600 font-mono mb-1">4235 6477 2802 5682</p>
+                <p className="text-xs text-yellow-600">CVV: 123 | Validade: 11/25</p>
               </div>
             </div>
           </CardContent>
