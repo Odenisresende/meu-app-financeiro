@@ -1,17 +1,33 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-
+// Força a rota a ser dinâmica
 export const dynamic = "force-dynamic"
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+)
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
+    const url = new URL(request.url)
+    const userId = url.searchParams.get("userId")
 
     if (!userId) {
       return NextResponse.json({ error: "userId é obrigatório" }, { status: 400 })
+    }
+
+    // Se não tiver Supabase configurado, retorna mock
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return NextResponse.json({
+        success: true,
+        isActive: false,
+        status: "inactive",
+        subscription: null,
+        message: "Supabase não configurado - usando dados mock",
+        timestamp: new Date().toISOString(),
+      })
     }
 
     const { data: subscription, error } = await supabase

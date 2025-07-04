@@ -18,7 +18,7 @@ import {
   FileText,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -30,6 +30,8 @@ import PWAInstallPrompt from "@/components/pwa-install-prompt"
 import AuthWrapper from "@/components/auth-wrapper"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import Link from "next/link"
+import Image from "next/image"
 
 interface Transaction {
   id: string
@@ -822,7 +824,14 @@ function FinancialControlApp() {
         <Card className="shadow-lg border-0 bg-white">
           <CardContent className="p-3 sm:p-6">
             <div className="flex items-center justify-between">
-              <img src="/logo-seu-planejamento.png" alt="Seu Planejamento" className="h-8 sm:h-16 w-auto" />
+              <Image
+                src="/logo-seu-planejamento.png"
+                alt="Seu Planejamento"
+                width={200}
+                height={100}
+                className="h-16 w-auto object-contain"
+                priority
+              />
               <h1
                 className="text-sm sm:text-2xl font-bold absolute left-1/2 transform -translate-x-1/2"
                 style={{ color: "#152638" }}
@@ -1376,6 +1385,118 @@ function FinancialControlApp() {
             )}
           </CardContent>
         </Card>
+
+        {/* New Home Page Section */}
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+          <div className="container mx-auto px-4 py-8">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <div className="flex justify-center mb-6">
+                <Image
+                  src="/logo-seu-planejamento.png"
+                  alt="Seu Planejamento"
+                  width={200}
+                  height={100}
+                  className="h-16 w-auto object-contain"
+                  priority
+                />
+              </div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">Seu Planejamento Financeiro</h1>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Controle suas finanças de forma inteligente com IA, importação automática e relatórios avançados
+              </p>
+            </div>
+
+            {/* Status Cards */}
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    ✅ Deploy
+                    <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded">Funcionando</span>
+                  </CardTitle>
+                  <CardDescription>Aplicação deployada com sucesso no Vercel</CardDescription>
+                </CardHeader>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    ⏳ Supabase
+                    <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Pendente</span>
+                  </CardTitle>
+                  <CardDescription>Banco de dados e autenticação precisam ser configurados</CardDescription>
+                </CardHeader>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    ⏳ Mercado Pago
+                    <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Pendente</span>
+                  </CardTitle>
+                  <CardDescription>Sistema de pagamentos precisa ser configurado</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+
+            {/* Action Cards */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>🚀 Próximos Passos</CardTitle>
+                  <CardDescription>Configure os serviços necessários para usar o app</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded">
+                    <span>1. Configurar Supabase</span>
+                    <span className="text-blue-600 font-medium">Prioritário</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <span>2. Configurar Mercado Pago</span>
+                    <span className="text-gray-600">Depois</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <span>3. Testar funcionalidades</span>
+                    <span className="text-gray-600">Final</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>🔧 Páginas de Teste</CardTitle>
+                  <CardDescription>Acesse as páginas de diagnóstico e teste</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Link href="/test-payment" className="block">
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      💳 Teste de Pagamento
+                    </Button>
+                  </Link>
+                  <Link href="/landing" className="block">
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      🎯 Landing Page
+                    </Button>
+                  </Link>
+                  <Link href="/webhook-test" className="block">
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      🔗 Teste de Webhook
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Footer */}
+            <div className="text-center mt-12 text-gray-500">
+              <p>Deploy realizado com sucesso! 🎉</p>
+              <p className="text-sm mt-2">
+                Próximo passo: Configurar Supabase para habilitar autenticação e banco de dados
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
