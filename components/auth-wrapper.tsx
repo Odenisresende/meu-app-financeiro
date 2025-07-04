@@ -1,53 +1,31 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
+import type { User } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, UserIcon, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase-client"
 
-// Hook personalizado para usar em outros componentes
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
 export function useAuth() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
-    }
-
-    getUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const signOut = async () => {
-    await supabase.auth.signOut()
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthWrapper")
   }
-
-  return {
-    user,
-    loading,
-    signOut,
-    isAuthenticated: !!user,
-  }
+  return context
 }
 
 interface AuthWrapperProps {
@@ -55,7 +33,7 @@ interface AuthWrapperProps {
 }
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [authLoading, setAuthLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -67,27 +45,26 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    // Verificar usuário atual
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
       setLoading(false)
-    }
+    })
 
-    getUser()
-
-    // Escutar mudanças de autenticação
+    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+  }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,6 +112,12 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       ...formData,
       [e.target.name]: e.target.value,
     })
+  }
+
+  const value = {
+    user,
+    loading,
+    signOut,
   }
 
   if (loading) {
@@ -235,7 +218,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <UserIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="name"
                         name="name"
@@ -312,5 +295,5 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     )
   }
 
-  return <>{children}</>
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
