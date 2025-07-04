@@ -16,9 +16,10 @@ import {
   Eye,
   MessageCircle,
   FileText,
+  Crown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -26,11 +27,12 @@ import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
 import HeaderMenu from "@/components/header-menu"
 import AutoTrialManager from "@/components/auto-trial-manager"
+import TrialBanner from "@/components/trial-banner"
 import PWAInstallPrompt from "@/components/pwa-install-prompt"
 import AuthWrapper from "@/components/auth-wrapper"
+import PremiumOverlay from "@/components/premium-overlay"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
-import Link from "next/link"
 import Image from "next/image"
 
 interface Transaction {
@@ -157,19 +159,32 @@ function FinancialControlApp() {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [showPremiumOverlay, setShowPremiumOverlay] = useState(false)
 
-  // FORÇAR SEMPRE PREMIUM ATIVO - SEM VERIFICAÇÕES
-  const [subscriptionStatus] = useState({
-    isPremium: true,
-    isInTrial: true,
-    trialDaysLeft: 7,
+  // Estado do trial - agora baseado em data real
+  const [subscriptionStatus, setSubscriptionStatus] = useState({
+    isPremium: false,
+    isInTrial: false,
+    trialDaysLeft: 0,
     isExpired: false,
     showUpgrade: false,
   })
 
-  // Função para atualizar status do trial (não faz nada agora)
+  // Função para atualizar status do trial
   const handleTrialStatusChange = (status: any) => {
-    console.log("📊 Status ignorado - sempre premium:", status)
+    console.log("📊 Status do trial atualizado:", status)
+    setSubscriptionStatus({
+      isPremium: status.isPremium,
+      isInTrial: status.isInTrial,
+      trialDaysLeft: status.daysLeft,
+      isExpired: !status.isInTrial && !status.isPremium,
+      showUpgrade: status.showUpgrade,
+    })
+  }
+
+  // Função para abrir modal de upgrade
+  const handleUpgrade = () => {
+    setShowPremiumOverlay(true)
   }
 
   // Detectar status de conexão
@@ -421,7 +436,6 @@ function FinancialControlApp() {
     }
 
     const newTransaction: Transaction = {
-      id: Date.now().toString(),
       date: date,
       category: category,
       amount: numericAmount,
@@ -485,7 +499,6 @@ function FinancialControlApp() {
 
     for (const transaction of importedTransactions) {
       const newTransaction = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         date: transaction.date,
         category: transaction.category,
         amount: transaction.amount,
@@ -813,8 +826,15 @@ function FinancialControlApp() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-1 sm:p-4">
-      {/* Gerenciador de Trial Automático - Invisível */}
+      {/* Gerenciador de Trial Automático */}
       <AutoTrialManager user={user} onTrialStatusChange={handleTrialStatusChange} />
+
+      {/* Banner de Trial */}
+      <TrialBanner
+        daysLeft={subscriptionStatus.trialDaysLeft}
+        showUpgrade={subscriptionStatus.showUpgrade}
+        onUpgrade={handleUpgrade}
+      />
 
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
@@ -873,6 +893,23 @@ function FinancialControlApp() {
           </Card>
         )}
 
+        {/* Status do Trial */}
+        {subscriptionStatus.isExpired && (
+          <Card className="shadow-lg border-0 bg-red-50 border-red-200">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 text-red-800">
+                <Crown className="h-4 w-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium">
+                  Trial expirado. Faça upgrade para continuar usando todas as funcionalidades.
+                </span>
+                <Button size="sm" onClick={handleUpgrade} className="ml-auto bg-red-600 hover:bg-red-700 text-white">
+                  Upgrade Agora
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Estatísticas de Fontes (Debug) */}
         {whatsappTransactions.length > 0 && (
           <Card className="shadow-lg border-0 bg-green-50 border-green-200">
@@ -887,163 +924,185 @@ function FinancialControlApp() {
           </Card>
         )}
 
-        {/* Add Transaction Form - SEMPRE LIBERADO */}
+        {/* Add Transaction Form - Controle de acesso baseado no trial */}
         <Card className="shadow-lg border-0 bg-white">
           <CardHeader style={{ backgroundColor: "#152638" }}>
             <CardTitle className="flex items-center gap-2 text-white text-sm sm:text-xl">
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               Nova Transação
+              {subscriptionStatus.isExpired && <Badge className="bg-red-500 text-white ml-2">Premium</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-6">
-            {/* Type Selector */}
-            <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-4 sm:mb-6">
-              <Button
-                variant={type === "expense" ? "default" : "outline"}
-                onClick={() => setType("expense")}
-                style={{
-                  backgroundColor: type === "expense" ? "#8B2635" : "transparent",
-                  borderColor: "#8B2635",
-                  color: type === "expense" ? "white" : "#8B2635",
-                }}
-                className="hover:opacity-90 text-xs sm:text-base py-2 sm:py-3"
-              >
-                <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Gasto</span>
-                <span className="sm:hidden">Gasto</span>
-              </Button>
-              <Button
-                variant={type === "income" ? "default" : "outline"}
-                onClick={() => setType("income")}
-                style={{
-                  backgroundColor: type === "income" ? "#2D5016" : "transparent",
-                  borderColor: "#2D5016",
-                  color: type === "income" ? "white" : "#2D5016",
-                }}
-                className="hover:opacity-90 text-xs sm:text-base py-2 sm:py-3"
-              >
-                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Receita</span>
-                <span className="sm:hidden">Receita</span>
-              </Button>
-              <Button
-                variant={type === "investment" ? "default" : "outline"}
-                onClick={() => setType("investment")}
-                style={{
-                  backgroundColor: type === "investment" ? "#152638" : "transparent",
-                  borderColor: "#152638",
-                  color: type === "investment" ? "white" : "#152638",
-                }}
-                className="hover:opacity-90 text-xs sm:text-base py-2 sm:py-3"
-              >
-                <PiggyBank className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Investimento</span>
-                <span className="sm:hidden">Invest.</span>
-              </Button>
-            </div>
-
-            <div className="space-y-3 sm:space-y-4">
-              {/* Data */}
-              <div className="space-y-1 sm:space-y-2">
-                <Label className="flex items-center gap-2 font-medium text-xs sm:text-sm" style={{ color: "#152638" }}>
-                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                  Data
-                </Label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="border-gray-300 focus:border-[#DDC067] focus:ring-[#DDC067] text-xs sm:text-sm h-10 sm:h-auto"
-                  style={{ color: "#152638" }}
-                />
+            {subscriptionStatus.isExpired ? (
+              <div className="text-center py-8">
+                <Crown className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">Trial expirado. Faça upgrade para adicionar transações.</p>
+                <Button onClick={handleUpgrade} className="bg-[#DDC067] text-[#152638] hover:opacity-90">
+                  Upgrade Premium
+                </Button>
               </div>
-
-              {/* Categoria/Local */}
-              <div className="space-y-1 sm:space-y-2">
-                <Label className="flex items-center gap-2 font-medium text-xs sm:text-sm" style={{ color: "#152638" }}>
-                  <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
-                  {type === "investment" ? "Local" : "Categoria"}
-                </Label>
-                <div className="flex gap-2">
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-md focus:border-[#DDC067] focus:outline-none focus:ring-1 focus:ring-[#DDC067] text-xs sm:text-sm h-10 sm:h-auto"
-                    style={{ color: "#152638" }}
-                  >
-                    {categories[type].sort().map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+            ) : (
+              <>
+                {/* Type Selector */}
+                <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-4 sm:mb-6">
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddCategory(!showAddCategory)}
-                    className="px-2 sm:px-3 border-[#DDC067] text-[#DDC067] hover:bg-[#DDC067] hover:text-[#152638] h-10 sm:h-auto"
+                    variant={type === "expense" ? "default" : "outline"}
+                    onClick={() => setType("expense")}
+                    style={{
+                      backgroundColor: type === "expense" ? "#8B2635" : "transparent",
+                      borderColor: "#8B2635",
+                      color: type === "expense" ? "white" : "#8B2635",
+                    }}
+                    className="hover:opacity-90 text-xs sm:text-base py-2 sm:py-3"
                   >
-                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Gasto</span>
+                    <span className="sm:hidden">Gasto</span>
+                  </Button>
+                  <Button
+                    variant={type === "income" ? "default" : "outline"}
+                    onClick={() => setType("income")}
+                    style={{
+                      backgroundColor: type === "income" ? "#2D5016" : "transparent",
+                      borderColor: "#2D5016",
+                      color: type === "income" ? "white" : "#2D5016",
+                    }}
+                    className="hover:opacity-90 text-xs sm:text-base py-2 sm:py-3"
+                  >
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Receita</span>
+                    <span className="sm:hidden">Receita</span>
+                  </Button>
+                  <Button
+                    variant={type === "investment" ? "default" : "outline"}
+                    onClick={() => setType("investment")}
+                    style={{
+                      backgroundColor: type === "investment" ? "#152638" : "transparent",
+                      borderColor: "#152638",
+                      color: type === "investment" ? "white" : "#152638",
+                    }}
+                    className="hover:opacity-90 text-xs sm:text-base py-2 sm:py-3"
+                  >
+                    <PiggyBank className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Investimento</span>
+                    <span className="sm:hidden">Invest.</span>
                   </Button>
                 </div>
 
-                {showAddCategory && (
-                  <div className="flex gap-2 mt-2">
+                <div className="space-y-3 sm:space-y-4">
+                  {/* Data */}
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label
+                      className="flex items-center gap-2 font-medium text-xs sm:text-sm"
+                      style={{ color: "#152638" }}
+                    >
+                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                      Data
+                    </Label>
                     <Input
-                      placeholder={type === "investment" ? "Novo local" : "Nova categoria"}
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      className="text-xs sm:text-sm border-gray-300 focus:border-[#DDC067] focus:ring-[#DDC067] h-9 sm:h-auto"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="border-gray-300 focus:border-[#DDC067] focus:ring-[#DDC067] text-xs sm:text-sm h-10 sm:h-auto"
                       style={{ color: "#152638" }}
                     />
-                    <Button
-                      size="sm"
-                      onClick={handleAddCategory}
-                      style={{ backgroundColor: "#DDC067", color: "#152638" }}
-                      className="hover:opacity-90 font-medium text-xs sm:text-sm h-9 sm:h-auto px-3"
-                    >
-                      Add
-                    </Button>
                   </div>
-                )}
-              </div>
 
-              {/* Valor */}
-              <div className="space-y-1 sm:space-y-2">
-                <Label className="flex items-center gap-2 font-medium text-xs sm:text-sm" style={{ color: "#152638" }}>
-                  <Banknote className="h-3 w-3 sm:h-4 sm:w-4" />
-                  Valor (R$)
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="0,00"
-                  value={amount}
-                  onChange={(e) => handleAmountChange(e.target.value)}
-                  className="border-gray-300 focus:border-[#DDC067] focus:ring-[#DDC067] text-xs sm:text-sm h-10 sm:h-auto text-lg sm:text-base font-bold"
-                  style={{ color: "#152638" }}
-                />
-              </div>
+                  {/* Categoria/Local */}
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label
+                      className="flex items-center gap-2 font-medium text-xs sm:text-sm"
+                      style={{ color: "#152638" }}
+                    >
+                      <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
+                      {type === "investment" ? "Local" : "Categoria"}
+                    </Label>
+                    <div className="flex gap-2">
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-md focus:border-[#DDC067] focus:outline-none focus:ring-1 focus:ring-[#DDC067] text-xs sm:text-sm h-10 sm:h-auto"
+                        style={{ color: "#152638" }}
+                      >
+                        {categories[type].sort().map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddCategory(!showAddCategory)}
+                        className="px-2 sm:px-3 border-[#DDC067] text-[#DDC067] hover:bg-[#DDC067] hover:text-[#152638] h-10 sm:h-auto"
+                      >
+                        <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                    </div>
 
-              {/* Botão Adicionar */}
-              <Button
-                onClick={handleAddTransaction}
-                className="w-full font-medium hover:opacity-90 text-sm sm:text-base h-12 sm:h-auto"
-                style={{ backgroundColor: "#DDC067", color: "#152638" }}
-                disabled={!date || !category || !amount || amount === "0,00" || isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#152638] mr-2"></div>
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar
-                  </>
-                )}
-              </Button>
-            </div>
+                    {showAddCategory && (
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder={type === "investment" ? "Novo local" : "Nova categoria"}
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          className="text-xs sm:text-sm border-gray-300 focus:border-[#DDC067] focus:ring-[#DDC067] h-9 sm:h-auto"
+                          style={{ color: "#152638" }}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleAddCategory}
+                          style={{ backgroundColor: "#DDC067", color: "#152638" }}
+                          className="hover:opacity-90 font-medium text-xs sm:text-sm h-9 sm:h-auto px-3"
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Valor */}
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label
+                      className="flex items-center gap-2 font-medium text-xs sm:text-sm"
+                      style={{ color: "#152638" }}
+                    >
+                      <Banknote className="h-3 w-3 sm:h-4 sm:w-4" />
+                      Valor (R$)
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="0,00"
+                      value={amount}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      className="border-gray-300 focus:border-[#DDC067] focus:ring-[#DDC067] text-xs sm:text-sm h-10 sm:h-auto text-lg sm:text-base font-bold"
+                      style={{ color: "#152638" }}
+                    />
+                  </div>
+
+                  {/* Botão Adicionar */}
+                  <Button
+                    onClick={handleAddTransaction}
+                    className="w-full font-medium hover:opacity-90 text-sm sm:text-base h-12 sm:h-auto"
+                    style={{ backgroundColor: "#DDC067", color: "#152638" }}
+                    disabled={!date || !category || !amount || amount === "0,00" || isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#152638] mr-2"></div>
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -1073,127 +1132,144 @@ function FinancialControlApp() {
           </Card>
         )}
 
-        {/* Dashboard */}
+        {/* Dashboard - Controle de acesso baseado no trial */}
         {filteredTransactions.length > 0 && Object.keys(expenseTotals).length > 0 && (
           <div className="space-y-4 sm:space-y-6">
-            {/* Summary Cards - INCLUINDO DADOS DO WHATSAPP */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-              <Card className="text-white border-0 shadow-lg" style={{ backgroundColor: "#2D5016" }}>
-                <CardContent className="p-3 sm:p-6">
-                  <div className="text-center sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-white/80 text-xs font-medium">Receitas</p>
-                      <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyIncome)}</p>
-                    </div>
-                    <TrendingUp className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="text-white border-0 shadow-lg" style={{ backgroundColor: "#8B2635" }}>
-                <CardContent className="p-3 sm:p-6">
-                  <div className="text-center sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-white/80 text-xs font-medium">Gastos</p>
-                      <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyExpenses)}</p>
-                    </div>
-                    <TrendingDown className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="text-white border-0 shadow-lg" style={{ backgroundColor: "#152638" }}>
-                <CardContent className="p-3 sm:p-6">
-                  <div className="text-center sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-white/80 text-xs font-medium">Investimentos</p>
-                      <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyInvestments)}</p>
-                    </div>
-                    <PiggyBank className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="text-white border-0 shadow-lg"
-                style={{ backgroundColor: monthlyBalance >= 0 ? "#DDC067" : "#6F4031" }}
-              >
-                <CardContent className="p-3 sm:p-6">
-                  <div className="text-center sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-white/80 text-xs font-medium">Saldo</p>
-                      <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyBalance)}</p>
-                    </div>
-                    <Wallet className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Gráficos - Stack no mobile */}
-            <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
-              {/* Expense Summary Table */}
+            {subscriptionStatus.isExpired ? (
               <Card className="shadow-lg border-0 bg-white">
-                <CardHeader style={{ backgroundColor: "#152638" }}>
-                  <CardTitle className="flex items-center gap-2 text-white text-sm sm:text-lg">
-                    <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Gastos por Categoria
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-6">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead style={{ color: "#152638" }} className="font-medium text-xs">
-                            Categoria
-                          </TableHead>
-                          <TableHead className="text-right font-medium text-xs" style={{ color: "#152638" }}>
-                            Valor
-                          </TableHead>
-                          <TableHead className="text-right font-medium text-xs" style={{ color: "#152638" }}>
-                            %
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {Object.entries(expenseTotals)
-                          .sort(([, a], [, b]) => b - a)
-                          .map(([cat, amount]) => (
-                            <TableRow key={cat}>
-                              <TableCell className="flex items-center gap-2 py-2">
-                                <div
-                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: categoryColors[cat] || "#152638" }}
-                                />
-                                <span style={{ color: "#152638" }} className="font-medium text-xs truncate">
-                                  {cat}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right font-bold text-xs" style={{ color: "#DDC067" }}>
-                                R$ {formatDisplayValue(amount)}
-                              </TableCell>
-                              <TableCell className="text-right font-medium text-xs" style={{ color: "#152638" }}>
-                                {((amount / monthlyExpenses) * 100).toFixed(1)}%
-                              </TableCell>
+                <CardContent className="p-8 text-center">
+                  <Crown className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Relatórios Premium</h3>
+                  <p className="text-gray-600 mb-4">
+                    Acesse gráficos detalhados e análises avançadas com o plano Premium
+                  </p>
+                  <Button onClick={handleUpgrade} className="bg-[#DDC067] text-[#152638] hover:opacity-90">
+                    Upgrade Premium
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Summary Cards - INCLUINDO DADOS DO WHATSAPP */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+                  <Card className="text-white border-0 shadow-lg" style={{ backgroundColor: "#2D5016" }}>
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="text-center sm:flex sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-white/80 text-xs font-medium">Receitas</p>
+                          <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyIncome)}</p>
+                        </div>
+                        <TrendingUp className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="text-white border-0 shadow-lg" style={{ backgroundColor: "#8B2635" }}>
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="text-center sm:flex sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-white/80 text-xs font-medium">Gastos</p>
+                          <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyExpenses)}</p>
+                        </div>
+                        <TrendingDown className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="text-white border-0 shadow-lg" style={{ backgroundColor: "#152638" }}>
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="text-center sm:flex sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-white/80 text-xs font-medium">Investimentos</p>
+                          <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyInvestments)}</p>
+                        </div>
+                        <PiggyBank className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className="text-white border-0 shadow-lg"
+                    style={{ backgroundColor: monthlyBalance >= 0 ? "#DDC067" : "#6F4031" }}
+                  >
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="text-center sm:flex sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-white/80 text-xs font-medium">Saldo</p>
+                          <p className="text-sm sm:text-2xl font-bold">R$ {formatDisplayValue(monthlyBalance)}</p>
+                        </div>
+                        <Wallet className="h-4 w-4 sm:h-8 sm:w-8 text-white/80 mx-auto mt-1 sm:mx-0 sm:mt-0" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Gráficos - Stack no mobile */}
+                <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+                  {/* Expense Summary Table */}
+                  <Card className="shadow-lg border-0 bg-white">
+                    <CardHeader style={{ backgroundColor: "#152638" }}>
+                      <CardTitle className="flex items-center gap-2 text-white text-sm sm:text-lg">
+                        <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
+                        Gastos por Categoria
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead style={{ color: "#152638" }} className="font-medium text-xs">
+                                Categoria
+                              </TableHead>
+                              <TableHead className="text-right font-medium text-xs" style={{ color: "#152638" }}>
+                                Valor
+                              </TableHead>
+                              <TableHead className="text-right font-medium text-xs" style={{ color: "#152638" }}>
+                                %
+                              </TableHead>
                             </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                          </TableHeader>
+                          <TableBody>
+                            {Object.entries(expenseTotals)
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([cat, amount]) => (
+                                <TableRow key={cat}>
+                                  <TableCell className="flex items-center gap-2 py-2">
+                                    <div
+                                      className="w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: categoryColors[cat] || "#152638" }}
+                                    />
+                                    <span style={{ color: "#152638" }} className="font-medium text-xs truncate">
+                                      {cat}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right font-bold text-xs" style={{ color: "#DDC067" }}>
+                                    R$ {formatDisplayValue(amount)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium text-xs" style={{ color: "#152638" }}>
+                                    {((amount / monthlyExpenses) * 100).toFixed(1)}%
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              {/* Pie Chart */}
-              <Card className="shadow-lg border-0 bg-white">
-                <CardHeader style={{ backgroundColor: "#152638" }}>
-                  <CardTitle className="text-white text-sm sm:text-lg">Distribuição dos Gastos</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-6">
-                  <PieChart data={expenseTotals} total={monthlyExpenses} />
-                </CardContent>
-              </Card>
-            </div>
+                  {/* Pie Chart */}
+                  <Card className="shadow-lg border-0 bg-white">
+                    <CardHeader style={{ backgroundColor: "#152638" }}>
+                      <CardTitle className="text-white text-sm sm:text-lg">Distribuição dos Gastos</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6">
+                      <PieChart data={expenseTotals} total={monthlyExpenses} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1218,8 +1294,8 @@ function FinancialControlApp() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Botão de gerar PDF */}
-                {filteredTransactions.length > 0 && (
+                {/* Botão de gerar PDF - Controle de acesso */}
+                {filteredTransactions.length > 0 && !subscriptionStatus.isExpired && (
                   <Button
                     onClick={generatePDFReport}
                     disabled={isGeneratingPDF}
@@ -1241,8 +1317,8 @@ function FinancialControlApp() {
                   </Button>
                 )}
 
-                {/* Botão de exclusão - SEMPRE LIBERADO */}
-                {selectedTransactions.length > 0 && (
+                {/* Botão de exclusão - Controle de acesso */}
+                {selectedTransactions.length > 0 && !subscriptionStatus.isExpired && (
                   <Button
                     onClick={handleDeleteSelected}
                     disabled={isLoading}
@@ -1272,16 +1348,18 @@ function FinancialControlApp() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectAll}
-                          onChange={handleSelectAll}
-                          disabled={filteredTransactions.length === 0}
-                          className="rounded border-gray-300 text-[#DDC067] focus:ring-[#DDC067]"
-                          title="Selecionar tudo"
-                        />
-                      </TableHead>
+                      {!subscriptionStatus.isExpired && (
+                        <TableHead className="w-12">
+                          <input
+                            type="checkbox"
+                            checked={selectAll}
+                            onChange={handleSelectAll}
+                            disabled={filteredTransactions.length === 0}
+                            className="rounded border-gray-300 text-[#DDC067] focus:ring-[#DDC067]"
+                            title="Selecionar tudo"
+                          />
+                        </TableHead>
+                      )}
                       <TableHead style={{ color: "#152638" }} className="font-medium text-xs">
                         Data
                       </TableHead>
@@ -1294,7 +1372,7 @@ function FinancialControlApp() {
                       <TableHead className="text-right font-medium text-xs" style={{ color: "#152638" }}>
                         Valor
                       </TableHead>
-                      <TableHead className="w-12"></TableHead>
+                      {!subscriptionStatus.isExpired && <TableHead className="w-12"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1305,14 +1383,16 @@ function FinancialControlApp() {
                           key={transaction.id}
                           className={selectedTransactions.includes(transaction.id) ? "bg-blue-50" : ""}
                         >
-                          <TableCell className="py-2">
-                            <input
-                              type="checkbox"
-                              checked={selectedTransactions.includes(transaction.id)}
-                              onChange={() => handleSelectTransaction(transaction.id)}
-                              className="rounded border-gray-300 text-[#DDC067] focus:ring-[#DDC067]"
-                            />
-                          </TableCell>
+                          {!subscriptionStatus.isExpired && (
+                            <TableCell className="py-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedTransactions.includes(transaction.id)}
+                                onChange={() => handleSelectTransaction(transaction.id)}
+                                className="rounded border-gray-300 text-[#DDC067] focus:ring-[#DDC067]"
+                              />
+                            </TableCell>
+                          )}
                           <TableCell style={{ color: "#152638" }} className="font-medium text-xs py-2">
                             {formatDateForDisplay(transaction.date)}
                           </TableCell>
@@ -1358,16 +1438,18 @@ function FinancialControlApp() {
                           >
                             {transaction.type === "income" ? "+" : "-"}R$ {formatDisplayValue(transaction.amount)}
                           </TableCell>
-                          <TableCell className="py-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteTransaction(transaction.id)}
-                              className="h-6 w-6 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
+                          {!subscriptionStatus.isExpired && (
+                            <TableCell className="py-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteTransaction(transaction.id)}
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                   </TableBody>
@@ -1385,119 +1467,10 @@ function FinancialControlApp() {
             )}
           </CardContent>
         </Card>
-
-        {/* New Home Page Section */}
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-          <div className="container mx-auto px-4 py-8">
-            {/* Header */}
-            <div className="text-center mb-12">
-              <div className="flex justify-center mb-6">
-                <Image
-                  src="/logo-seu-planejamento.png"
-                  alt="Seu Planejamento"
-                  width={200}
-                  height={100}
-                  className="h-16 w-auto object-contain"
-                  priority
-                />
-              </div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">Seu Planejamento Financeiro</h1>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Controle suas finanças de forma inteligente com IA, importação automática e relatórios avançados
-              </p>
-            </div>
-
-            {/* Status Cards */}
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    ✅ Deploy
-                    <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded">Funcionando</span>
-                  </CardTitle>
-                  <CardDescription>Aplicação deployada com sucesso no Vercel</CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    ⏳ Supabase
-                    <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Pendente</span>
-                  </CardTitle>
-                  <CardDescription>Banco de dados e autenticação precisam ser configurados</CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    ⏳ Mercado Pago
-                    <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Pendente</span>
-                  </CardTitle>
-                  <CardDescription>Sistema de pagamentos precisa ser configurado</CardDescription>
-                </CardHeader>
-              </Card>
-            </div>
-
-            {/* Action Cards */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>🚀 Próximos Passos</CardTitle>
-                  <CardDescription>Configure os serviços necessários para usar o app</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded">
-                    <span>1. Configurar Supabase</span>
-                    <span className="text-blue-600 font-medium">Prioritário</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <span>2. Configurar Mercado Pago</span>
-                    <span className="text-gray-600">Depois</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <span>3. Testar funcionalidades</span>
-                    <span className="text-gray-600">Final</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>🔧 Páginas de Teste</CardTitle>
-                  <CardDescription>Acesse as páginas de diagnóstico e teste</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Link href="/test-payment" className="block">
-                    <Button variant="outline" className="w-full justify-start bg-transparent">
-                      💳 Teste de Pagamento
-                    </Button>
-                  </Link>
-                  <Link href="/landing" className="block">
-                    <Button variant="outline" className="w-full justify-start bg-transparent">
-                      🎯 Landing Page
-                    </Button>
-                  </Link>
-                  <Link href="/webhook-test" className="block">
-                    <Button variant="outline" className="w-full justify-start bg-transparent">
-                      🔗 Teste de Webhook
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Footer */}
-            <div className="text-center mt-12 text-gray-500">
-              <p>Deploy realizado com sucesso! 🎉</p>
-              <p className="text-sm mt-2">
-                Próximo passo: Configurar Supabase para habilitar autenticação e banco de dados
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
+
+      {/* Premium Overlay */}
+      {showPremiumOverlay && <PremiumOverlay user={user} onClose={() => setShowPremiumOverlay(false)} />}
     </div>
   )
 }

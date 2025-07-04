@@ -5,78 +5,55 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 export async function POST(request: Request) {
   try {
-    const { userEmail, userName, planType = "premium", amount = 19.9 } = await request.json()
+    const { userId, userEmail, userName } = await request.json()
 
-    if (!userEmail || !userName) {
-      return NextResponse.json({ error: "Email e nome são obrigatórios" }, { status: 400 })
+    console.log("🚀 Criando assinatura para:", { userId, userEmail, userName })
+
+    if (!userId || !userEmail || !userName) {
+      return NextResponse.json({ error: "Dados do usuário são obrigatórios" }, { status: 400 })
     }
 
     const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN
-    const publicKey = process.env.MERCADO_PAGO_PUBLIC_KEY
-
-    if (!accessToken || !publicKey) {
-      return NextResponse.json({ error: "Tokens do Mercado Pago não configurados" }, { status: 500 })
+    if (!accessToken) {
+      return NextResponse.json({ error: "Token do Mercado Pago não configurado" }, { status: 500 })
     }
 
-    // Gerar um ID único baseado no timestamp para evitar conflitos
-    const testUserId = `test_user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-    // Criar preferência de pagamento com configurações para evitar erro "pagar para si mesmo"
-    const preferenceData = {
-      items: [
-        {
-          title: "Plano Premium - Seu Planejamento",
-          description: "Acesso completo ao app de controle financeiro",
-          quantity: 1,
-          currency_id: "BRL",
-          unit_price: amount,
-        },
-      ],
-      payer: {
-        name: userName,
-        email: userEmail,
-        // Adicionar informações do pagador para evitar conflito
-        identification: {
-          type: "CPF",
-          number: "12345678901", // CPF fictício para teste
-        },
+    // Criar assinatura recorrente no Mercado Pago
+    const subscriptionData = {
+      reason: "Plano Premium - Seu Planejamento",
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: 17.0,
+        currency_id: "BRL",
+        repetitions: 12, // 1 ano, depois renova automaticamente
+        billing_day: new Date().getDate(), // Dia do mês para cobrança
+        billing_day_proportional: true,
       },
-      external_reference: testUserId,
-      back_urls: {
-        success: `${process.env.NEXT_PUBLIC_APP_URL || "https://seu-app.vercel.app"}/payment/success`,
-        failure: `${process.env.NEXT_PUBLIC_APP_URL || "https://seu-app.vercel.app"}/payment/failure`,
-        pending: `${process.env.NEXT_PUBLIC_APP_URL || "https://seu-app.vercel.app"}/payment/pending`,
-      },
-      auto_return: "approved",
-      notification_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://seu-app.vercel.app"}/api/webhooks/mercadopago`,
-      payment_methods: {
-        excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: 12,
-      },
-      // Configurações adicionais para sandbox
-      purpose: "wallet_purchase",
-      marketplace: "NONE",
+      payer_email: userEmail,
+      back_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
+      external_reference: userId,
+      status: "pending",
     }
 
-    console.log("Criando preferência com dados:", JSON.stringify(preferenceData, null, 2))
+    console.log("📋 Dados da assinatura:", JSON.stringify(subscriptionData, null, 2))
 
-    const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
+    const response = await fetch("https://api.mercadopago.com/preapproval", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        "X-Idempotency-Key": `${testUserId}_${Date.now()}`,
+        "X-Idempotency-Key": `subscription_${userId}_${Date.now()}`,
       },
-      body: JSON.stringify(preferenceData),
+      body: JSON.stringify(subscriptionData),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error("Erro do Mercado Pago:", errorText)
+      console.error("❌ Erro do Mercado Pago:", errorText)
       return NextResponse.json(
         {
-          error: "Erro ao criar preferência de pagamento",
+          error: "Erro ao criar assinatura",
           details: errorText,
           status: response.status,
         },
@@ -84,45 +61,86 @@ export async function POST(request: Request) {
       )
     }
 
-    const preference = await response.json()
-    console.log("Preferência criada:", preference.id)
+    const subscription = await response.json()
+    console.log("✅ Assinatura criada:", subscription.id)
 
-    // Salvar no banco usando INSERT ao invés de UPSERT para evitar erro de constraint
+    // Salvar assinatura no banco - com verificação
     try {
-      const { error: dbError } = await supabase.from("user_subscriptions").insert({
-        user_id: testUserId,
-        preference_id: preference.id,
-        status: "pending",
-        is_active: false,
-        plan_type: planType,
-        amount: amount,
-        currency: "BRL",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      console.log("🔍 Verificando se usuário já tem assinatura...")
 
-      if (dbError) {
-        console.error("Erro ao salvar no banco:", dbError)
-        // Não falhar a requisição por erro de banco em teste
+      // Primeiro, verificar se já existe assinatura para este usuário
+      const { data: existingSubscription, error: selectError } = await supabase
+        .from("user_subscriptions")
+        .select("*")
+        .eq("user_id", userId)
+        .single()
+
+      if (selectError && selectError.code !== "PGRST116") {
+        // PGRST116 = "not found" - isso é OK, significa que não existe
+        console.error("⚠️ Erro ao verificar assinatura existente:", selectError)
+      }
+
+      if (existingSubscription) {
+        console.log("📝 Atualizando assinatura existente...")
+        // Usuário já tem assinatura - vamos atualizar
+        const { error: updateError } = await supabase
+          .from("user_subscriptions")
+          .update({
+            subscription_id: subscription.id,
+            status: "pending",
+            is_active: false,
+            plan_type: "premium",
+            amount: 17.0,
+            currency: "BRL",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId)
+
+        if (updateError) {
+          console.error("⚠️ Erro ao atualizar assinatura:", updateError)
+        } else {
+          console.log("✅ Assinatura atualizada com sucesso")
+        }
       } else {
-        console.log("Subscription salva no banco com sucesso")
+        console.log("➕ Criando nova assinatura...")
+        // Usuário não tem assinatura - vamos criar
+        const { error: insertError } = await supabase.from("user_subscriptions").insert({
+          user_id: userId,
+          subscription_id: subscription.id,
+          status: "pending",
+          is_active: false,
+          plan_type: "premium",
+          amount: 17.0,
+          currency: "BRL",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+
+        if (insertError) {
+          console.error("⚠️ Erro ao criar assinatura:", insertError)
+        } else {
+          console.log("✅ Nova assinatura criada com sucesso")
+        }
       }
     } catch (dbError) {
-      console.error("Erro de banco (não crítico para teste):", dbError)
+      console.error("💥 Erro geral de banco:", dbError)
     }
 
     return NextResponse.json({
       success: true,
-      preferenceId: preference.id,
-      paymentUrl: preference.init_point,
-      sandboxUrl: preference.sandbox_init_point,
-      testUserId: testUserId,
-      userEmail: userEmail,
-      userName: userName,
-      message: "Preferência criada com sucesso! Use um email diferente do configurado na conta MP.",
+      subscriptionId: subscription.id,
+      paymentUrl: subscription.init_point,
+      sandboxUrl: subscription.sandbox_init_point,
+      message: "Assinatura recorrente criada com sucesso!",
+      testInstructions: {
+        cardNumber: "4509 9535 6623 3704",
+        expiryDate: "11/25",
+        cvv: "123",
+        name: "APRO",
+      },
     })
   } catch (error: any) {
-    console.error("Erro ao criar subscription:", error)
+    console.error("💥 Erro ao criar assinatura:", error)
     return NextResponse.json(
       {
         error: "Erro interno do servidor",
