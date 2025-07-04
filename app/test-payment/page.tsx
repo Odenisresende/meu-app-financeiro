@@ -1,81 +1,44 @@
 "use client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function TestPaymentPage() {
-  const [testResults, setTestResults] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<any>(null)
 
-  const runTests = async () => {
-    setIsLoading(true)
+  const testPayment = async () => {
+    setLoading(true)
     try {
       const response = await fetch("/api/test-payment-flow")
       const data = await response.json()
-      setTestResults(data)
+      setResult(data)
     } catch (error) {
-      setTestResults({ error: "Erro ao executar testes" })
+      setResult({ error: "Erro ao testar pagamento" })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold mb-2">Teste de Pagamento</h1>
-        <p className="text-gray-600">Teste completo da integração com Mercado Pago</p>
-      </div>
+    <div className="container mx-auto p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Teste de Pagamento</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={testPayment} disabled={loading} className="w-full">
+            {loading ? "Testando..." : "Testar Fluxo de Pagamento"}
+          </Button>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>🧪 Testes Automáticos</CardTitle>
-            <CardDescription>Verificar configuração e conectividade</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button onClick={runTests} disabled={isLoading} className="w-full">
-              {isLoading ? "Executando..." : "Executar Testes"}
-            </Button>
-
-            {testResults && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <pre className="text-sm overflow-auto">{JSON.stringify(testResults, null, 2)}</pre>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>💳 Teste Manual</CardTitle>
-            <CardDescription>Testar fluxo completo de pagamento</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">Use os dados de teste do Mercado Pago:</p>
-            <div className="bg-blue-50 p-3 rounded text-sm">
-              <strong>Cartão de teste:</strong>
-              <br />
-              Número: 4509 9535 6623 3704
-              <br />
-              Vencimento: 11/25
-              <br />
-              CVV: 123
-              <br />
-              Nome: APRO (aprovado)
+          {result && (
+            <div className="mt-4 p-4 bg-gray-100 rounded">
+              <pre>{JSON.stringify(result, null, 2)}</pre>
             </div>
-
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">
-                Componente de assinatura será carregado aqui quando a autenticação estiver funcionando.
-              </p>
-              <Button disabled className="w-full">
-                Teste de Pagamento (Requer Login)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
