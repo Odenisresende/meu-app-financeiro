@@ -1,34 +1,37 @@
 import { createClient } from "@supabase/supabase-js"
 
-// SUAS CREDENCIAIS DO SUPABASE (use as variáveis de ambiente)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+// VERIFICAÇÃO ROBUSTA DAS VARIÁVEIS DE AMBIENTE
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Verificar se as variáveis estão definidas
-if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ Variáveis de ambiente do Supabase não configuradas!")
-  console.error("NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl ? "✅ Definida" : "❌ Não definida")
-  console.error("NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseKey ? "✅ Definida" : "❌ Não definida")
+// LOG PARA DEBUG
+console.log("🔍 Verificando variáveis de ambiente:")
+console.log("SUPABASE_URL:", supabaseUrl ? "✅ Definida" : "❌ Não definida")
+console.log("SUPABASE_ANON_KEY:", supabaseAnonKey ? "✅ Definida" : "❌ Não definida")
+
+// VALIDAÇÃO COM MENSAGENS CLARAS
+if (!supabaseUrl) {
+  console.error("❌ ERRO: NEXT_PUBLIC_SUPABASE_URL não está definida!")
+  console.error("Verifique se a variável está no arquivo .env.local")
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL é obrigatória")
 }
 
-// Verificar se as URLs são válidas
-if (supabaseUrl && !supabaseUrl.includes(".supabase.co")) {
-  console.error("❌ URL do Supabase parece incorreta:", supabaseUrl)
+if (!supabaseAnonKey) {
+  console.error("❌ ERRO: NEXT_PUBLIC_SUPABASE_ANON_KEY não está definida!")
+  console.error("Verifique se a variável está no arquivo .env.local")
+  throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY é obrigatória")
 }
 
-// INSTÂNCIA ÚNICA DO SUPABASE COM CONFIGURAÇÕES MELHORADAS
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+// CRIAR CLIENTE SUPABASE
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },
-  global: {
-    headers: {
-      "X-Client-Info": "supabase-js-web",
-    },
-  },
 })
+
+console.log("✅ Cliente Supabase criado com sucesso!")
 
 // FUNÇÃO DE LOGOUT MELHORADA
 export const logout = async () => {
@@ -37,36 +40,45 @@ export const logout = async () => {
   try {
     // 1. Fazer logout do Supabase
     const { error } = await supabase.auth.signOut({
-      scope: "local", // Remove apenas da sessão local
+      scope: "local",
     })
 
     if (error) {
       console.error("Erro no logout:", error)
-      // Mesmo com erro, continuar limpeza
     }
 
-    // 2. Limpar storage local
+    // 2. Limpar storage local de forma segura
     if (typeof window !== "undefined") {
-      localStorage.clear()
-      sessionStorage.clear()
+      // Limpar apenas chaves relacionadas ao auth
+      const keysToRemove: string[] = []
 
-      // Limpar cookies do Supabase especificamente
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/")
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.includes("sb-") || key.includes("supabase") || key.includes("auth"))) {
+          keysToRemove.push(key)
+        }
+      }
+
+      keysToRemove.forEach((key) => {
+        try {
+          localStorage.removeItem(key)
+        } catch (e) {
+          console.warn("Erro ao remover chave:", key)
+        }
       })
+
+      // Limpar session storage
+      try {
+        sessionStorage.clear()
+      } catch (e) {
+        console.warn("Erro ao limpar sessionStorage")
+      }
     }
 
     console.log("✅ Logout realizado com sucesso")
     return true
   } catch (error) {
     console.error("❌ Falha no logout:", error)
-
-    // Forçar limpeza mesmo com erro
-    if (typeof window !== "undefined") {
-      localStorage.clear()
-      sessionStorage.clear()
-    }
-
     return false
   }
 }
@@ -81,13 +93,15 @@ export const checkAndRefreshSession = async () => {
 
     if (error) {
       console.error("Erro ao verificar sessão:", error)
+
       // Se erro de refresh token, fazer logout
-      if (error.message.includes("refresh_token_not_found") || error.message.includes("Invalid Refresh Token")) {
+      if (
+        error.message.includes("refresh_token_not_found") ||
+        error.message.includes("Invalid Refresh Token") ||
+        error.message.includes("Already Used")
+      ) {
         console.log("🔄 Token inválido, fazendo logout...")
         await logout()
-        if (typeof window !== "undefined") {
-          window.location.reload()
-        }
         return null
       }
     }
@@ -96,9 +110,6 @@ export const checkAndRefreshSession = async () => {
   } catch (error) {
     console.error("Erro crítico na sessão:", error)
     await logout()
-    if (typeof window !== "undefined") {
-      window.location.reload()
-    }
     return null
   }
 }
@@ -107,8 +118,6 @@ export const checkAndRefreshSession = async () => {
 export const testConnection = async () => {
   try {
     console.log("🔍 Testando conexão com Supabase...")
-    console.log("URL:", supabaseUrl)
-    console.log("Key (primeiros 20 chars):", supabaseKey?.substring(0, 20) + "...")
 
     const { data, error } = await supabase.from("user_subscriptions").select("count").limit(1)
 
