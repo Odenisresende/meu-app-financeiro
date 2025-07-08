@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Configuração direta para V0
-const supabaseUrl = "https://iyltagcmvocbdvebrnih.supabase.co"
+// Usar as variáveis de ambiente corretas
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://nsvxswjgpqcxizbqdhoy.supabase.co"
 const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5bHRhZ2Ntdm9jYmR2ZWJybmloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1ODc2MTUsImV4cCI6MjA2NzE2MzYxNX0.RP1LSlSpR4ub2BJfvKIzr0dCAi5unN9OO6UWDdJleOE"
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zdnhzd2pncHFjeGl6YnFkaG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExNDc1NzIsImV4cCI6MjA2NjcyMzU3Mn0.3H-xp0EOYtO5M4GiDWs_tenRtk3aLukpzfhyAwlu4nI"
 
 // CRIAR CLIENTE SUPABASE
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

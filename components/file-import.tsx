@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -420,7 +419,6 @@ export default function FileImport({ onImportTransactions }: FileImportProps) {
       },
       {
         keywords: [
-          // Transferências e Saques
           "pix enviado",
           "transferencia enviada",
           "ted enviado",

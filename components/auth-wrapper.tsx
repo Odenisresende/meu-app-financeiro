@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useRef } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import { Loader2, Mail, Lock, UserIcon, Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
@@ -32,7 +32,6 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const subscriptionRef = useRef<any>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -54,32 +53,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setLoading(false)
         }
 
-        // Configurar listener apenas uma vez
-        if (!subscriptionRef.current) {
-          const {
-            data: { subscription },
-          } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
-            if (!isMounted) return
+        // Configurar listener
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
+          if (!isMounted) return
 
-            console.log("🔐 Auth state changed:", event)
+          console.log("🔐 Auth state changed:", event)
 
-            switch (event) {
-              case "SIGNED_IN":
-              case "TOKEN_REFRESHED":
-              case "USER_UPDATED":
-                if (session) {
-                  setUser(session.user)
-                }
-                break
-              case "SIGNED_OUT":
-                setUser(null)
-                break
-            }
+          switch (event) {
+            case "SIGNED_IN":
+            case "TOKEN_REFRESHED":
+            case "USER_UPDATED":
+              if (session) {
+                setUser(session.user)
+              }
+              break
+            case "SIGNED_OUT":
+              setUser(null)
+              break
+          }
 
-            setLoading(false)
-          })
+          setLoading(false)
+        })
 
-          subscriptionRef.current = subscription
+        return () => {
+          subscription.unsubscribe()
         }
       } catch (error) {
         console.error("Erro na configuração da auth:", error)
@@ -90,14 +89,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
 
-    setupAuth()
+    const cleanup = setupAuth()
 
     return () => {
       isMounted = false
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe()
-        subscriptionRef.current = null
-      }
+      cleanup?.then((cleanupFn) => cleanupFn?.())
     }
   }, [])
 
@@ -338,26 +334,15 @@ function SimpleLoginForm() {
 }
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  return (
+    <AuthProvider>
+      <AuthContent>{children}</AuthContent>
+    </AuthProvider>
+  )
+}
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+function AuthContent({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
 
   if (loading) {
     return (
@@ -367,5 +352,9 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     )
   }
 
-  return <AuthProvider>{children}</AuthProvider>
+  if (!user) {
+    return <SimpleLoginForm />
+  }
+
+  return <>{children}</>
 }
