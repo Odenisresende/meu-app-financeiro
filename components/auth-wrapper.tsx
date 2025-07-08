@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
+import { createContext, useContext, useEffect, useState, useRef } from "react"
 import { Loader2, Mail, Lock, UserIcon, Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
@@ -32,25 +32,12 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [initialized, setInitialized] = useState(false)
   const subscriptionRef = useRef<any>(null)
-
-  // Verificar se Supabase está configurado
-  const isSupabaseConfigured = useCallback(() => {
-    return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  }, [])
 
   useEffect(() => {
     let isMounted = true
 
     const setupAuth = async () => {
-      if (!isSupabaseConfigured()) {
-        if (isMounted) {
-          setLoading(false)
-        }
-        return
-      }
-
       try {
         // Verificar sessão inicial
         const {
@@ -63,7 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         if (isMounted) {
-          setUser((session?.user as User) || null)
+          setUser(session?.user ?? null)
           setLoading(false)
         }
 
@@ -81,7 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               case "TOKEN_REFRESHED":
               case "USER_UPDATED":
                 if (session) {
-                  setUser(session.user as User)
+                  setUser(session.user)
                 }
                 break
               case "SIGNED_OUT":
@@ -112,13 +99,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         subscriptionRef.current = null
       }
     }
-  }, [isSupabaseConfigured])
+  }, [])
 
   const signIn = async (email: string, password: string) => {
-    if (!isSupabaseConfigured()) {
-      return { error: { message: "Supabase não configurado" } }
-    }
-
     try {
       const result = await supabase.auth.signInWithPassword({
         email,
@@ -133,10 +116,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const signUp = async (email: string, password: string) => {
-    if (!isSupabaseConfigured()) {
-      return { error: { message: "Supabase não configurado" } }
-    }
-
     try {
       const result = await supabase.auth.signUp({
         email,
@@ -151,10 +130,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const signOut = async () => {
-    if (!isSupabaseConfigured()) {
-      return
-    }
-
     try {
       setLoading(true)
       const { logout } = await import("@/lib/supabase")
@@ -201,7 +176,7 @@ function SimpleLoginForm() {
         if (error) {
           setError(error.message)
         } else {
-          setError("Verifique seu email para confirmar a conta!")
+          setError("✅ Verifique seu email para confirmar a conta!")
         }
       } else {
         const { error } = await signIn(formData.email, formData.password)
@@ -332,7 +307,15 @@ function SimpleLoginForm() {
             </div>
           </div>
 
-          {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
+          {error && (
+            <div
+              className={`text-sm p-3 rounded-md ${
+                error.includes("✅") ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+              }`}
+            >
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
@@ -359,34 +342,16 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Verificar sessão atual
-    const checkSession = async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession()
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
 
-        if (error) {
-          console.error("Erro ao verificar sessão:", error)
-        }
-
-        setUser(session?.user ?? null)
-      } catch (error) {
-        console.error("Erro crítico na sessão:", error)
-        setUser(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-
-    // Escutar mudanças de autenticação
+    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
     })
@@ -396,8 +361,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
   }

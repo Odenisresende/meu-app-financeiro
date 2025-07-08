@@ -1,26 +1,9 @@
 import { createClient } from "@supabase/supabase-js"
 
-// VERIFICAÇÃO ROBUSTA DAS VARIÁVEIS DE AMBIENTE
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-// LOG PARA DEBUG
-console.log("🔍 Verificando variáveis de ambiente:")
-console.log("SUPABASE_URL:", supabaseUrl ? "✅ Definida" : "❌ Não definida")
-console.log("SUPABASE_ANON_KEY:", supabaseAnonKey ? "✅ Definida" : "❌ Não definida")
-
-// VALIDAÇÃO COM MENSAGENS CLARAS
-if (!supabaseUrl) {
-  console.error("❌ ERRO: NEXT_PUBLIC_SUPABASE_URL não está definida!")
-  console.error("Verifique se a variável está no arquivo .env.local")
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL é obrigatória")
-}
-
-if (!supabaseAnonKey) {
-  console.error("❌ ERRO: NEXT_PUBLIC_SUPABASE_ANON_KEY não está definida!")
-  console.error("Verifique se a variável está no arquivo .env.local")
-  throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY é obrigatória")
-}
+// Configuração direta para V0
+const supabaseUrl = "https://iyltagcmvocbdvebrnih.supabase.co"
+const supabaseAnonKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5bHRhZ2Ntdm9jYmR2ZWJybmloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1ODc2MTUsImV4cCI6MjA2NzE2MzYxNX0.RP1LSlSpR4ub2BJfvKIzr0dCAi5unN9OO6UWDdJleOE"
 
 // CRIAR CLIENTE SUPABASE
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

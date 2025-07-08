@@ -1,18 +1,15 @@
 import { createClient } from "@supabase/supabase-js"
 
+const supabaseUrl = "https://iyltagcmvocbdvebrnih.supabase.co"
+const supabaseAnonKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5bHRhZ2Ntdm9jYmR2ZWJybmloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1ODc2MTUsImV4cCI6MjA2NzE2MzYxNX0.RP1LSlSpR4ub2BJfvKIzr0dCAi5unN9OO6UWDdJleOE"
+
 export function createServerSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Variáveis de ambiente do Supabase não configuradas")
-  }
-
-  return createClient(supabaseUrl, supabaseKey, {
+  return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
     },
   })
 }
+
+export const supabaseServer = createServerSupabaseClient()
